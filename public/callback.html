@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Success | Nexus Events</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/nexus-ui.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        nexus: {
+                            dark: '#0B0C10',
+                            gray: '#1F2833',
+                            light: '#C5C6C7',
+                            primary: '#66FCF1',
+                            success: '#10B981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass {
+                @apply bg-nexus-gray/60 backdrop-blur-md border border-white/10;
+            }
+        }
+        body {
+            background-color: #0B0C10;
+            color: #C5C6C7;
+        }
+        .ticket-cutout {
+            mask-image: radial-gradient(circle at 0% 50%, transparent 12px, black 13px), radial-gradient(circle at 100% 50%, transparent 12px, black 13px);
+            mask-size: 51% 100%;
+            mask-repeat: no-repeat;
+            mask-position: left, right;
+        }
+        .dashed-line {
+            border-bottom: 2px dashed rgba(255,255,255,0.2);
+            position: absolute;
+            width: 100%;
+            top: 50%;
+            left: 0;
+        }
+        .holographic {
+            background: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(102,252,241,0.2) 50%, rgba(255,255,255,0.1) 100%);
+            background-size: 200% 200%;
+            animation: holoShift 4s ease infinite;
+        }
+        @keyframes holoShift {
+            0% { background-position: 0% 50% }
+            50% { background-position: 100% 50% }
+            100% { background-position: 0% 50% }
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col items-center justify-center py-10 px-6 relative">
+    <!-- Confetti Background (CSS pseudo) -->
+    <div class="absolute inset-0 pointer-events-none opacity-20 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCI+PGNpcmNsZSBjeD0iMjAiIGN5PSIyMCIgcj0iMiIgZmlsbD0iIzY2RkNGMSIvPjwvc3ZnPg==')]"></div>
+
+    <div class="max-w-xl w-full z-10 animate-fade-in-up">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-20 h-20 bg-nexus-success/20 text-nexus-success rounded-full mb-6 border border-nexus-success/50">
+                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+            </div>
+            <h1 class="text-4xl font-display font-bold text-white mb-2">Payment Successful!</h1>
+            <p class="text-nexus-light">Your ticket has been confirmed. See you at the event!</p>
+            <div class="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-white/5 rounded-full border border-white/10 animate-pulse">
+                <svg class="w-4 h-4 text-nexus-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+                <p class="text-[11px] text-nexus-light/80 font-medium uppercase tracking-[0.1em]">A copy has been sent to your email</p>
+            </div>
+        </div>
+
+        <!-- Ticket Card -->
+        <div id="ticketContainer" class="bg-nexus-gray w-full rounded-2xl relative overflow-hidden shadow-[0_0_50px_rgba(102,252,241,0.3)] ticket-cutout border border-white/20 holographic transition-all duration-500 transform hover:scale-[1.02]">
+            <!-- Populated by JS -->
+            <div class="h-64 flex items-center justify-center animate-pulse">
+                <div class="text-nexus-primary text-xl font-bold">Generating premium ticket...</div>
+            </div>
+        </div>
+
+        <div class="text-center mt-12">
+            <a href="/" class="inline-block border-2 border-nexus-primary text-nexus-primary px-10 py-3 rounded-full font-bold hover:bg-nexus-primary hover:text-nexus-dark transition-all shadow-[0_0_20px_rgba(102,252,241,0.2)]">
+                Browse More Events
+            </a>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const reference = urlParams.get('reference');
+            const trxref = urlParams.get('trxref'); 
+            const finalRef = reference || trxref;
+
+            function getSafeImagePath(imagePath) {
+                if (!imagePath) return '';
+                if (imagePath.startsWith('http') || imagePath.startsWith('//') || imagePath.startsWith('data:')) {
+                    return imagePath;
+                }
+                return imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+            }
+
+            function formatEventDate(dateStr) {
+                if (!dateStr) return '';
+                let d;
+                if (dateStr.includes('/') && dateStr.split('/').length === 3) {
+                    const [day, month, year] = dateStr.split('/');
+                    d = new Date(year, parseInt(month) - 1, day);
+                } else if (dateStr.includes('-') && dateStr.split('-').length === 3) {
+                    const [year, month, day] = dateStr.split('-');
+                    d = new Date(year, parseInt(month) - 1, day);
+                } else {
+                    d = new Date(dateStr);
+                }
+                if (isNaN(d.getTime())) return dateStr;
+                return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            }
+
+            const ticketContainer = document.getElementById('ticketContainer');
+            
+            if (!finalRef) {
+                ticketContainer.innerHTML = `
+                    <div class="p-8 text-center text-red-400">
+                        Invalid ticket link. Missing payment reference.
+                    </div>`;
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/payment/verify/' + finalRef);
+                const result = await response.json();
+
+                if (result.success) {
+                    const ticket = result.ticket;
+                    const event = result.event;
+                    
+                    ticketContainer.innerHTML = `
+                        <!-- Top section (Event image & Details) -->
+                        <div class="relative h-48">
+                            <img src="${getSafeImagePath(event.image)}" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-gradient-to-t from-nexus-dark via-nexus-dark/40 to-transparent"></div>
+                            <div class="absolute bottom-6 left-6 right-6">
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-2 h-2 rounded-full bg-nexus-primary animate-pulse"></div>
+                                    <div class="text-[10px] text-nexus-primary uppercase font-bold tracking-[0.2em]">Authentic Nexus Pass</div>
+                                </div>
+                                <h2 class="text-3xl font-display font-bold text-white tracking-tight">${event.name}</h2>
+                            </div>
+                        </div>
+                        
+                        <div class="dashed-line"></div>
+
+                        <!-- Bottom section (Ticket data) -->
+                        <div class="p-6 pt-8 pb-8 bg-nexus-gray relative">
+                            <div class="grid grid-cols-2 gap-6 mb-8">
+                                <div>
+                                    <div class="text-[10px] text-nexus-light/40 uppercase font-black tracking-widest mb-1">Event Date</div>
+                                    <div class="font-bold text-white">${formatEventDate(event.date)}</div>
+                                </div>
+                                <div>
+                                    <div class="text-[10px] text-nexus-light/40 uppercase font-black tracking-widest mb-1">Doors Open</div>
+                                    <div class="font-bold text-white">${event.time.split(' - ')[0]}</div>
+                                </div>
+                                <div class="col-span-2">
+                                    <div class="text-[10px] text-nexus-light/40 uppercase font-black tracking-widest mb-1">Venue Location</div>
+                                    <div class="font-medium text-white underline decoration-nexus-primary/30 underline-offset-4">${event.location}</div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-white/[0.03] rounded-2xl p-6 border border-white/10 flex justify-between items-center relative overflow-hidden group">
+                                <div class="absolute top-0 right-0 w-24 h-full bg-nexus-primary/5 -skew-x-12 translate-x-12 group-hover:translate-x-10 transition-transform"></div>
+                                
+                                <div class="relative z-10">
+                                    <div class="text-[10px] text-nexus-light/40 uppercase font-black tracking-widest mb-1">Pass Holder</div>
+                                    <div class="font-display font-black text-nexus-primary text-xl tracking-tight">${ticket.customerName}</div>
+                                    <div class="text-xs text-nexus-light/60">${ticket.customerEmail}</div>
+                                </div>
+                                <div class="text-right relative z-10">
+                                    <div class="text-[10px] text-nexus-light/40 uppercase font-black tracking-widest mb-1">Nexus ID</div>
+                                    <div class="font-mono text-white text-sm bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 mb-2">${ticket.ticketId || 'VERIFIED'}</div>
+                                    <div class="text-[9px] text-white/30 font-mono select-all">REF: ${ticket.reference.substring(0, 15)}...</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                     ticketContainer.innerHTML = `
+                    <div class="p-8 text-center text-red-500">
+                        Payment could not be verified. (${result.message || 'Error'})
+                    </div>`;
+                }
+            } catch(e) {
+                ticketContainer.innerHTML = `
+                    <div class="p-8 text-center text-red-500">
+                        Network error verifying payment.
+                    </div>`;
+            }
+        });
+    </script>
+</body>
+</html>

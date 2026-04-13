@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Event Details | Nexus Events</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="/js/nexus-ui.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        nexus: {
+                            dark: '#0B0C10',
+                            gray: '#1F2833',
+                            light: '#C5C6C7',
+                            primary: '#66FCF1',
+                            secondary: '#45A29E'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass {
+                @apply bg-nexus-gray/60 backdrop-blur-md border border-white/10;
+            }
+        }
+        body {
+            background-color: #0B0C10;
+            color: #C5C6C7;
+        }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col">
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 glass border-b-0 border-white/5 py-4 w-full">
+        <div class="max-w-6xl mx-auto px-6 flex justify-between items-center">
+            <a href="/" class="text-2xl font-display font-bold text-white tracking-wide">
+                NEXUS<span class="text-nexus-primary">EVENTS</span>
+            </a>
+            <a href="/" class="text-white hover:text-nexus-primary transition-colors font-medium">← Back to Events</a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <section class="py-12 px-6 flex-grow relative z-10">
+        <div id="eventDetailsContainer" class="max-w-6xl mx-auto">
+            <!-- Dynamically populated by JS -->
+        </div>
+    </section>
+
+    <!-- Checkout Modal -->
+    <div id="checkoutModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div class="bg-nexus-gray w-full max-w-md rounded-2xl border border-white/10 shadow-2xl overflow-hidden animate-fade-in-up">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center">
+                <h3 class="text-2xl font-display font-bold text-white">Complete Purchase</h3>
+                <button onclick="closeCheckoutModal()" class="text-nexus-light hover:text-white transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="p-6">
+                <form id="checkoutForm" onsubmit="startPaymentProcess(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-nexus-light/80 mb-1">Full Name</label>
+                        <input type="text" name="fullName" required class="w-full bg-nexus-dark border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-nexus-primary focus:ring-1 focus:ring-nexus-primary" placeholder="Jane Doe">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-nexus-light/80 mb-1">Email Address</label>
+                        <input type="email" name="email" required class="w-full bg-nexus-dark border border-white/10 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-nexus-primary focus:ring-1 focus:ring-nexus-primary" placeholder="jane@example.com">
+                    </div>
+                    <div class="pt-4">
+                        <button id="submitBtn" type="submit" class="w-full bg-nexus-primary text-nexus-dark font-bold text-lg py-3 rounded-lg hover:bg-white transition-colors duration-300">
+                            Pay with Paystack
+                        </button>
+                        <div class="text-center mt-3 flex justify-center">
+                            <span class="text-xs text-nexus-light/50 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd"></path></svg>
+                                Secured by Paystack
+                            </span>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <!-- <script src="https://js.paystack.co/v1/inline.js"></script> -->
+    <script src="/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEventDetails();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Nexus Events</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Inter:wght@400;500&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="/js/nexus-ui.js"></script>
+    <script>
+        // -----------------------------------------
+        // AUTHENTICATION GATEKEEPER
+        // -----------------------------------------
+        const token = localStorage.getItem('adminToken');
+        if (!token) {
+            window.location.href = '/login';
+        }
+
+        function logout() {
+            localStorage.removeItem('adminToken');
+            window.location.href = '/login';
+        }
+
+        const getAuthHeaders = () => ({
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+        });
+
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        nexus: {
+                            dark: '#0B0C10',
+                            gray: '#1F2833',
+                            light: '#C5C6C7',
+                            primary: '#66FCF1',
+                            secondary: '#45A29E'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .glass {
+                @apply bg-nexus-gray/60 backdrop-blur-md border border-white/10;
+            }
+        }
+        body {
+            background-color: #0B0C10;
+            color: #C5C6C7;
+        }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+
+<body class="antialiased min-h-screen">
+    <!-- Navbar -->
+    <nav class="sticky top-0 z-50 glass border-b-0 border-white/5 py-4">
+        <div class="max-w-7xl mx-auto px-6 flex justify-between items-center">
+            <a href="/" class="text-2xl font-display font-bold text-white tracking-wide uppercase">
+                Nexus<span class="text-nexus-primary uppercase">Events</span> <span class="text-xs absolute mt-1 ml-2 text-white/50 tracking-widest uppercase">Admin Dashboard</span>
+            </a>
+            <div class="space-x-4 hidden md:flex items-center">
+                <button onclick="exportCSV()"
+                    class="text-nexus-light hover:text-white transition-colors text-sm flex items-center gap-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+                        </path>
+                    </svg>
+                    Export Report
+                </button>
+                <a href="/validate" target="_blank" class="text-nexus-light hover:text-white transition-colors text-sm">Access Scanner Portal</a>
+                <button onclick="logout()" class="ml-4 border border-nexus-danger/50 text-nexus-danger/80 hover:bg-nexus-danger hover:text-white px-4 py-1.5 rounded-lg text-sm transition-all shadow-[0_0_10px_rgba(239,68,68,0.1)]">Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Header Stats -->
+    <header class="py-12 border-b border-white/5 relative overflow-hidden">
+        <div class="absolute inset-0 bg-gradient-to-r from-nexus-primary/5 to-transparent"></div>
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            <div class="flex justify-between items-end mb-8">
+                <div>
+                    <h1 class="text-4xl font-display font-bold text-white mb-2">Dashboard Overview</h1>
+                    <p class="text-nexus-light/80">Real-time metrics and event management</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="glass p-6 rounded-2xl border-l-4 border-nexus-primary">
+                    <div class="text-nexus-light/60 text-sm uppercase tracking-wider mb-2">Gross Revenue</div>
+                    <div class="text-3xl font-display font-bold text-white" id="totalRevenue">NGN 0</div>
+                </div>
+                <div class="glass p-6 rounded-2xl border-l-4 border-nexus-primary">
+                    <div class="text-nexus-light/60 text-sm uppercase tracking-wider mb-2">All Time Tickets</div>
+                    <div class="text-3xl font-display font-bold text-white" id="totalTickets">0</div>
+                </div>
+                <div class="glass p-6 rounded-2xl border-l-4 border-nexus-primary">
+                    <div class="text-nexus-light/60 text-sm uppercase tracking-wider mb-2">Active Events</div>
+                    <div class="text-3xl font-display font-bold text-white" id="activeEvents">0</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="max-w-7xl mx-auto px-6 py-6 border-b border-white/5 flex gap-8">
+        <button onclick="switchTab('overview')" id="tab-overview"
+            class="text-nexus-primary font-bold border-b-2 border-nexus-primary pb-2 uppercase tracking-widest text-sm transition-all">Overview</button>
+        <button onclick="switchTab('events')" id="tab-events"
+            class="text-nexus-light hover:text-white font-medium border-b-2 border-transparent pb-2 uppercase tracking-widest text-sm transition-all">Event
+            Manager</button>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <section class="max-w-7xl mx-auto px-6 py-10" id="mainContainer">
+
+        <!-- OVERVIEW TAB -->
+        <div id="overview-view">
+            <!-- Chart Container -->
+            <div class="glass p-6 rounded-2xl mb-10 h-80 relative overflow-hidden flex items-center justify-center">
+                <canvas id="revenueChart"></canvas>
+            </div>
+
+            <!-- Event Performance Table -->
+            <div class="glass rounded-2xl overflow-hidden border border-white/5 mb-10">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                    <h2 class="text-xl font-display font-bold text-white">Event Performance</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr
+                                class="bg-nexus-dark/50 border-b border-white/5 text-xs text-nexus-light/60 uppercase tracking-wider">
+                                <th class="p-5 font-medium">Event Name</th>
+                                <th class="p-5 font-medium">Date</th>
+                                <th class="p-5 font-medium text-right">Price</th>
+                                <th class="p-5 font-medium text-right">Sold / Cap</th>
+                                <th class="p-5 font-medium text-right">Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminTableBody" class="text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Attendees Table -->
+            <div class="glass rounded-2xl overflow-hidden border border-white/5">
+                <div class="p-6 border-b border-white/5 flex justify-between items-center">
+                    <h2 class="text-xl font-display font-bold text-white">Recent Attendees</h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse" id="attendeesTable">
+                        <thead>
+                            <tr
+                                class="bg-nexus-dark/50 border-b border-white/5 text-xs text-nexus-light/60 uppercase tracking-wider">
+                                <th class="p-5 font-medium">Customer</th>
+                                <th class="p-5 font-medium">Event</th>
+                                <th class="p-5 font-medium">Ticket ID</th>
+                                <th class="p-5 font-medium">Status</th>
+                                <th class="p-5 font-medium text-right">Date Purchased</th>
+                            </tr>
+                        </thead>
+                        <tbody id="attendeesTableBody" class="text-sm">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- EVENTS MANAGER TAB -->
+        <div id="events-view" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-display font-bold text-white">Manage Events</h2>
+                <button onclick="openModal()"
+                    class="bg-nexus-primary text-nexus-dark px-6 py-2 rounded font-bold shadow hover:bg-white transition-all">
+                    + Add New Event
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6" id="crudEventsContainer">
+                <div class="text-center text-nexus-light w-full py-10">Loading Events...</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CRUD MODAL -->
+    <div id="eventModal"
+        class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="glass max-w-2xl w-full mx-4 rounded-3xl overflow-hidden shadow-2xl relative border border-nexus-primary/20 transform scale-95 transition-transform duration-300"
+            id="modalContent">
+            <div class="p-6 border-b border-white/10 flex justify-between items-center bg-nexus-dark/50">
+                <h3 class="text-xl font-bold text-white" id="modalTitle">Add New Event</h3>
+                <button onclick="closeModal()"
+                    class="text-nexus-light hover:text-white transition-colors text-2xl leading-none">&times;</button>
+            </div>
+            <div class="p-6 max-h-[70vh] overflow-y-auto">
+                <form id="eventForm" onsubmit="handleEventSubmit(event)">
+                    <input type="hidden" id="eventId">
+                    <div class="grid grid-cols-2 gap-4 mb-4">
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Event Name</label>
+                            <input type="text" id="eventName" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Date (DD/MM/YYYY)</label>
+                            <input type="text" id="eventDate" placeholder="01/04/2026" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Time</label>
+                            <input type="text" id="eventTime" placeholder="e.g. 06:00 PM - 02:00 AM" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Location</label>
+                            <input type="text" id="eventLocation" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Price
+                                (NGN)</label>
+                            <input type="number" id="eventPrice" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Capacity</label>
+                            <input type="number" id="eventCapacity" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Image URL /
+                                Path</label>
+                            <input type="text" id="eventImage" placeholder="https://example.com/image.jpg" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white text-sm focus:border-nexus-primary focus:outline-none">
+                        </div>
+                        <div class="col-span-2">
+                            <label
+                                class="block text-xs font-bold text-nexus-light/80 uppercase mb-1">Description</label>
+                            <textarea id="eventDesc" rows="3" required
+                                class="w-full bg-nexus-dark/50 border border-white/20 rounded px-4 py-2 text-white text-sm focus:border-nexus-primary focus:outline-none"></textarea>
+                        </div>
+                    </div>
+                    <div class="mt-6 flex justify-end gap-4">
+                        <button type="button" onclick="closeModal()"
+                            class="px-6 py-2 border border-white/20 rounded text-white hover:bg-white/5 transition-colors">Cancel</button>
+                        <button type="submit" id="saveEventBtn"
+                            class="bg-nexus-primary text-nexus-dark px-8 py-2 rounded font-bold hover:bg-white transition-colors">Save
+                            Event</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div id="deleteModal" class="fixed inset-0 z-[60] hidden bg-nexus-dark/95 backdrop-blur-sm flex items-center justify-center p-6 opacity-0 transition-opacity duration-300">
+        <div id="deleteModalContent" class="glass max-w-sm w-full rounded-3xl p-8 border-nexus-danger/20 transform scale-95 transition-transform duration-300">
+            <div class="flex flex-col items-center text-center">
+                <div class="w-16 h-16 bg-nexus-danger/20 text-nexus-danger rounded-full flex items-center justify-center mb-6 border border-nexus-danger/30">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                </div>
+                <h3 class="text-2xl font-display font-bold text-white mb-2">Confirm Removal</h3>
+                <p class="text-nexus-light/80 text-sm mb-8 leading-relaxed">Are you absolutely sure you want to permanently delete this event? This action cannot be reversed.</p>
+                
+                <div class="flex gap-4 w-full">
+                    <button onclick="closeDeleteModal()" class="flex-1 px-6 py-3 border border-white/10 rounded-xl text-white hover:bg-white/5 transition-all font-bold">Cancel</button>
+                    <button id="confirmDeleteBtn" onclick="processDelete()" class="flex-1 px-6 py-3 bg-nexus-danger text-white rounded-xl hover:bg-red-600 transition-all font-bold shadow-[0_0_20px_rgba(239,68,68,0.2)]">Delete</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+        let rawEvents = [];
+        let globalChart = null;
+        let eventIdToDelete = null;
+
+        // TABS LOGIC
+        function switchTab(tabId) {
+            document.getElementById('overview-view').classList.add('hidden');
+            document.getElementById('events-view').classList.add('hidden');
+            document.getElementById(`${tabId}-view`).classList.remove('hidden');
+
+            document.getElementById('tab-overview').className = "text-nexus-light hover:text-white font-medium border-b-2 border-transparent pb-2 uppercase tracking-widest text-sm transition-all";
+            document.getElementById('tab-events').className = "text-nexus-light hover:text-white font-medium border-b-2 border-transparent pb-2 uppercase tracking-widest text-sm transition-all";
+
+            document.getElementById(`tab-${tabId}`).className = "text-nexus-primary font-bold border-b-2 border-nexus-primary pb-2 uppercase tracking-widest text-sm transition-all";
+
+            if (tabId === 'events') renderEventCards();
+        }
+
+        function getSafeImagePath(imagePath) {
+            if (!imagePath) return '';
+            if (imagePath.startsWith('http') || imagePath.startsWith('//') || imagePath.startsWith('data:')) {
+                return imagePath;
+            }
+            return imagePath.startsWith('/') ? imagePath : '/' + imagePath;
+        }
+
+        function formatEventDate(dateStr) {
+            if (!dateStr) return '';
+            let d;
+            if (dateStr.includes('/') && dateStr.split('/').length === 3) {
+                const [day, month, year] = dateStr.split('/');
+                d = new Date(year, parseInt(month) - 1, day);
+            } else if (dateStr.includes('-') && dateStr.split('-').length === 3) {
+                const [year, month, day] = dateStr.split('-');
+                d = new Date(year, parseInt(month) - 1, day);
+            } else {
+                d = new Date(dateStr);
+            }
+            if (isNaN(d.getTime())) return dateStr;
+            return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        function formatToDDMMYYYY(dateStr) {
+            if (!dateStr || !dateStr.includes('-')) return dateStr;
+            const bits = dateStr.split('-');
+            if(bits.length !== 3) return dateStr;
+            const [year, month, day] = bits;
+            return `${day}/${month}/${year}`;
+        }
+
+        function parseToYYYYMMDD(dateStr) {
+            if (!dateStr || !dateStr.includes('/')) return dateStr;
+            const bits = dateStr.split('/');
+            if(bits.length !== 3) return dateStr;
+            const [day, month, year] = bits;
+            return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
+
+        // LOAD DATA
+        document.addEventListener('DOMContentLoaded', async () => {
+            await loadData();
+        });
+
+        async function loadData() {
+            // Load Admin Stats (Contains true revenue tracking)
+            const statsRes = await fetch('/api/admin/stats', { headers: getAuthHeaders() });
+            if(statsRes.status === 401 || statsRes.status === 403) return logout();
+            const stats = await statsRes.json();
+            window.globalStatsCache = stats;
+
+            // Render Header Stats
+            document.getElementById('totalRevenue').textContent = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(stats.totalRevenue / 100);
+            document.getElementById('totalTickets').textContent = stats.totalTickets.toLocaleString();
+            document.getElementById('activeEvents').textContent = stats.activeEvents;
+            renderChart(stats.chartData);
+
+            // Load Events
+            const eventsRes = await fetch('/api/events');
+            rawEvents = await eventsRes.json();
+
+            // Render Performance Table utilizing true dynamic revenue
+            const tbody = document.getElementById('adminTableBody');
+            tbody.innerHTML = rawEvents.map(event => {
+                const exactRevenue = stats.revenueByEvent[event._id] || 0;
+                const revString = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 }).format(exactRevenue / 100);
+                const priceString = new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', minimumFractionDigits: 2 }).format(event.price / 100);
+                const pct = Math.round((event.soldTickets / event.capacity) * 100);
+
+                return `
+                    <td class="p-5 font-medium text-white flex items-center gap-3">
+                        <div class="w-10 h-10 rounded overflow-hidden bg-nexus-dark">
+                            <img src="${getSafeImagePath(event.image)}" class="w-full h-full object-cover">
+                        </div>
+                        ${event.name}
+                    </td>
+                    <td class="p-5 text-nexus-light">${formatEventDate(event.date)}</td>
+                    <td class="p-5 text-right font-medium text-white">${priceString}</td>
+                    <td class="p-5 text-right w-48">
+                        <div class="flex justify-end items-center gap-3">
+                            <span class="text-sm font-bold text-white">${event.soldTickets} <span class="text-nexus-light/50 font-normal">/ ${event.capacity}</span></span>
+                            <div class="w-16 h-2 bg-nexus-dark rounded-full overflow-hidden">
+                                <div class="h-full bg-nexus-primary" style="width: ${pct}%"></div>
+                            </div>
+                        </div>
+                    </td>
+                    <td class="p-5 text-right text-nexus-primary font-bold">${revString}</td>
+                </tr>
+                `;
+            }).join('');
+
+            // Fetch Attendees
+            const attendeesBody = document.getElementById('attendeesTableBody');
+            const attRes = await fetch('/api/admin/tickets', { headers: getAuthHeaders() });
+            window.attendeesCache = await attRes.json();
+
+            if (!window.attendeesCache || window.attendeesCache.length === 0) {
+                attendeesBody.innerHTML = `<tr><td colspan="5" class="p-5 text-center text-nexus-light">No tickets issued yet.</td></tr>`;
+            } else {
+                attendeesBody.innerHTML = window.attendeesCache.map(ticket => {
+                    let statusColor = 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20';
+                    if (ticket.status === 'PAID') statusColor = 'text-green-400 bg-green-400/10 border-green-400/20';
+                    if (ticket.status === 'USED') statusColor = 'text-nexus-primary bg-nexus-primary/10 border-nexus-primary/20';
+
+                    const dateNum = new Date(ticket.createdAt).toLocaleDateString();
+                    return `
+                    <tr class="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                        <td class="p-5">
+                            <div class="font-bold text-white">${ticket.customerName}</div>
+                            <div class="text-xs text-nexus-light/60">${ticket.customerEmail}</div>
+                        </td>
+                        <td class="p-5 text-nexus-light">${ticket.eventName}</td>
+                        <td class="p-5 font-mono text-white text-xs whitespace-nowrap">${ticket.ticketId || '-'}</td>
+                        <td class="p-5">
+                            <span class="px-3 py-1 rounded-full text-xs font-bold border ${statusColor}">${ticket.status}</span>
+                        </td>
+                        <td class="p-5 text-right text-nexus-light text-xs">${dateNum}</td>
+                    </tr>
+                    `;
+                }).join('');
+            }
+        }
+
+        // (loadStats is deprecated, fetching handled by loadData natively now)
+
+        // CHARTING
+        function renderChart(chartData) {
+            const ctx = document.getElementById('revenueChart').getContext('2d');
+            if (globalChart) globalChart.destroy();
+
+            // Gradient fill
+            const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+            gradient.addColorStop(0, 'rgba(102, 252, 241, 0.5)');
+            gradient.addColorStop(1, 'rgba(102, 252, 241, 0.0)');
+
+            globalChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'Gross Revenue (NGN)',
+                        data: chartData.revenue.map(val => val / 100),
+                        backgroundColor: gradient,
+                        borderColor: '#66FCF1',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        hoverBackgroundColor: '#66FCF1'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
+                            ticks: { color: 'rgba(255,255,255,0.5)' }
+                        },
+                        x: {
+                            grid: { display: false, drawBorder: false },
+                            ticks: { color: 'rgba(255,255,255,0.5)' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // CSV EXPORT
+        function exportCSV() {
+            if (!window.attendeesCache) return nexusNotify("Data not loaded yet.", "error");
+
+            const rows = [
+                ["Customer Name", "Email", "Event Name", "Ticket ID", "Status", "Date"]
+            ];
+
+            window.attendeesCache.forEach(t => {
+                rows.push([
+                    t.customerName,
+                    t.customerEmail,
+                    t.eventName,
+                    t.ticketId || '',
+                    t.status,
+                    new Date(t.createdAt).toLocaleDateString()
+                ]);
+            });
+
+            const csvContent = "data:text/csv;charset=utf-8," + rows.map(e => e.map(f => '"' + f + '"').join(",")).join("\n");
+            const encodedUri = encodeURI(csvContent);
+
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "nexus_attendees_report.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // EVENT CRUD
+        function renderEventCards() {
+            const container = document.getElementById('crudEventsContainer');
+            container.innerHTML = rawEvents.map(event => `
+                <div class="glass p-5 rounded-2xl flex border border-white/5 transition-all hover:border-nexus-primary/30">
+                    <img src="${getSafeImagePath(event.image)}" class="w-32 h-32 rounded-xl object-cover mr-6">
+                    <div class="flex-1 flex flex-col justify-center">
+                        <h3 class="text-xl font-bold text-white mb-1">${event.name}</h3>
+                        <div class="text-sm text-nexus-light mb-3">${formatEventDate(event.date)}</div>
+                        <div class="text-xs font-mono text-nexus-primary mb-4 block">${event.soldTickets}/${event.capacity} Booked</div>
+                        <div class="flex gap-2">
+                            <button onclick="openModal('${event._id}')" class="text-sm font-bold border border-white/30 rounded px-4 py-1 hover:bg-white/10 transition w-max">Edit Fields</button>
+                            <button onclick="deleteEvent('${event._id}')" class="text-sm font-bold border border-nexus-danger/30 text-nexus-danger rounded px-4 py-1 hover:bg-nexus-danger/10 transition w-max">Delete Event</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Modal Handlers
+        function openModal(eventId = null) {
+            const modal = document.getElementById('eventModal');
+            const content = document.getElementById('modalContent');
+            const title = document.getElementById('modalTitle');
+            const form = document.getElementById('eventForm');
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+
+            if (eventId) {
+                title.innerText = "Edit Event";
+                const ev = rawEvents.find(e => e._id === eventId);
+
+                document.getElementById('eventId').value = ev._id;
+                document.getElementById('eventName').value = ev.name;
+                document.getElementById('eventDate').value = formatToDDMMYYYY(ev.date);
+                document.getElementById('eventTime').value = ev.time;
+                document.getElementById('eventLocation').value = ev.location;
+                document.getElementById('eventPrice').value = ev.price / 100;
+                document.getElementById('eventCapacity').value = ev.capacity;
+                document.getElementById('eventImage').value = ev.image;
+                document.getElementById('eventDesc').value = ev.description;
+            } else {
+                title.innerText = "Add New Event";
+                form.reset();
+                document.getElementById('eventId').value = '';
+            }
+
+            // Always reset button text when modal is ready
+            document.getElementById('saveEventBtn').innerText = "Save Event";
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('eventModal');
+            const content = document.getElementById('modalContent');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+        }
+
+        async function handleEventSubmit(e) {
+            e.preventDefault();
+            const btn = document.getElementById('saveEventBtn');
+            btn.innerText = "Saving...";
+
+            const id = document.getElementById('eventId').value;
+            const data = {
+                name: document.getElementById('eventName').value,
+                date: parseToYYYYMMDD(document.getElementById('eventDate').value),
+                time: document.getElementById('eventTime').value,
+                location: document.getElementById('eventLocation').value,
+                price: parseFloat(document.getElementById('eventPrice').value) * 100,
+                capacity: parseInt(document.getElementById('eventCapacity').value),
+                image: document.getElementById('eventImage').value,
+                description: document.getElementById('eventDesc').value,
+            };
+
+            const url = id ? `/api/admin/events/${id}` : '/api/admin/events';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify(data)
+                });
+                const responseData = await res.json();
+                if (res.ok) {
+                    nexusNotify(id ? "Event updated successfully!" : "Event created successfully!", "success");
+                    closeModal();
+                    await loadData(); // Reloads app state
+                    switchTab('events'); // stay on tab
+                } else {
+                    const errorMsg = responseData.errors ? responseData.errors.join('<br>') : (responseData.message || 'Error saving event.');
+                    nexusNotify(errorMsg, "error");
+                    btn.innerText = "Save Event";
+                }
+            } catch (err) {
+                console.error(err);
+                nexusNotify('Network error connecting to the server.', "error");
+                btn.innerText = "Save Event";
+            }
+        }
+
+        function deleteEvent(id) {
+            eventIdToDelete = id;
+            const modal = document.getElementById('deleteModal');
+            const content = document.getElementById('deleteModalContent');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                content.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeDeleteModal() {
+            const modal = document.getElementById('deleteModal');
+            const content = document.getElementById('deleteModalContent');
+            modal.classList.add('opacity-0');
+            content.classList.add('scale-95');
+            setTimeout(() => { modal.classList.add('hidden'); }, 300);
+            eventIdToDelete = null;
+        }
+
+        async function processDelete() {
+            if (!eventIdToDelete) return;
+            const btn = document.getElementById('confirmDeleteBtn');
+            const originalText = btn.innerText;
+            btn.innerText = "Deleting...";
+            btn.disabled = true;
+
+            try {
+                const res = await fetch(`/api/admin/events/${eventIdToDelete}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+                if(res.ok) {
+                    nexusNotify("Event removed successfully.", "success");
+                    closeDeleteModal();
+                    await loadData();
+                    switchTab('events');
+                } else {
+                    nexusNotify('Error deleting event from the database.', "error");
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }
+            } catch(e) {
+                console.error(e);
+                nexusNotify('Network Error occurred while deleting.', "error");
+                btn.innerText = originalText;
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+
+</html>
