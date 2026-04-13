@@ -50,11 +50,15 @@ const authenticateAdmin = (req, res, next) => {
 // ----------------------------------------------------
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for 587
+    port: 587,
+    secure: false, // TLS
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
+    },
+    tls: {
+        // Essential for cloud providers often facing IPv6/DNS issues
+        servername: 'smtp.gmail.com'
     }
 });
 
@@ -265,7 +269,7 @@ app.get('/api/payment/verify/:reference', async (req, res) => {
                 const event = await Event.findByIdAndUpdate(
                     ticket.eventId,
                     { $inc: { soldTickets: 1 } },
-                    { new: true }
+                    { returnDocument: 'after' }
                 );
                 
                 // Dispatched in background (non-blocking) for instant ticket generation
