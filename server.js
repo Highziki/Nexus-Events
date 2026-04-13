@@ -49,12 +49,31 @@ const authenticateAdmin = (req, res, next) => {
 // MAILER CONFIGURATION
 // ----------------------------------------------------
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for 465, false for 587
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     }
 });
+
+function formatEmailDate(dateStr) {
+    if (!dateStr) return '';
+    const months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+    let d, m, y;
+    if (dateStr.includes('/')) {
+        [d, m, y] = dateStr.split('/');
+    } else if (dateStr.includes('-')) {
+        const bits = dateStr.split('-');
+        if(bits.length === 3) { [y, m, d] = bits; } else { return dateStr; }
+    } else {
+        return dateStr;
+    }
+    const monthName = months[parseInt(m) - 1];
+    if(!monthName) return dateStr;
+    return `${monthName} ${parseInt(d)}, ${y}`;
+}
 
 const sendConfirmationEmail = async (ticket, event) => {
     try {
@@ -86,7 +105,8 @@ const sendConfirmationEmail = async (ticket, event) => {
                                 <img src="cid:ticket_qrcode" alt="QR Code" style="border-radius: 6px; box-shadow: 0 0 10px rgba(102, 252, 241, 0.2); border: 2px solid #66FCF1; width: 150px; height: 150px;">
                             </div>
                         </div>
-                        <p><strong>Date:</strong> ${event.date} at ${event.time}</p>
+                        </div>
+                        <p><strong>Date:</strong> ${formatEmailDate(event.date)} at ${event.time}</p>
                         <p><strong>Location:</strong> ${event.location}</p>
                         <hr style="border-color: #ffffff10; margin: 30px 0;">
                         <p style="font-size: 12px; color: #888; text-align: center;">Present your QR code at the entrance for scanning. Enjoy the experience!</p>
@@ -105,7 +125,10 @@ const sendConfirmationEmail = async (ticket, event) => {
         await transporter.sendMail(mailOptions);
         console.log(`Confirmation email instantly dispatched to ${ticket.customerEmail} with attached QR Code`);
     } catch (err) {
-        console.error("Failed to sequence email execution:", err);
+        console.error("Critical Email Error Logic Detected:");
+        if (err.code === 'EAUTH') console.error(" - Authentication Failed! Check your EMAIL_USER/EMAIL_PASS (Use App Passwords).");
+        if (err.code === 'ECONNREFUSED') console.error(" - Connection refused by SMTP server. Check port settings.");
+        console.error(" - Full Details:", err.message);
     }
 };
 
@@ -245,7 +268,8 @@ app.get('/api/payment/verify/:reference', async (req, res) => {
                     { new: true }
                 );
                 
-                await sendConfirmationEmail(ticket, event);
+                // Dispatched in background (non-blocking) for instant ticket generation
+                sendConfirmationEmail(ticket, event).catch(err => console.error("Background Email Failed:", err.message));
             }
 
             // Fetch the event to return to frontend
