@@ -51,15 +51,16 @@ const authenticateAdmin = (req, res, next) => {
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 587,
-    secure: false, // TLS
+    secure: false, 
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
     tls: {
-        // Essential for cloud providers often facing IPv6/DNS issues
         servername: 'smtp.gmail.com'
-    }
+    },
+    debug: true,  // Show SMTP logs in console
+    logger: true  // Detailed logging
 });
 
 function formatEmailDate(dateStr) {
@@ -139,6 +140,26 @@ const sendConfirmationEmail = async (ticket, event) => {
 // ----------------------------------------------------
 // API ROUTES
 // ----------------------------------------------------
+
+// Diagnostic Email Test Route (Admin Only)
+app.get('/api/admin/test-email', authenticateAdmin, async (req, res) => {
+    try {
+        if (!process.env.EMAIL_USER) return res.status(400).json({ error: 'EMAIL_USER not set' });
+        
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: process.env.EMAIL_USER, // Send to self
+            subject: 'Nexus Diagnostic: SMTP Test',
+            text: 'If you are reading this, your SMTP configuration is working correctly from the server environment!'
+        };
+        
+        await transporter.sendMail(mailOptions);
+        res.json({ success: true, message: 'Test email successfully dispatched to ' + process.env.EMAIL_USER });
+    } catch (err) {
+        console.error("Diagnostic Test Failed:", err);
+        res.status(500).json({ success: false, error: err.message, code: err.code });
+    }
+});
 
 // 0. Auth Login
 app.post('/api/auth/login', (req, res) => {
