@@ -174,6 +174,8 @@ app.post('/api/payment/initialize', async (req, res) => {
         });
         await pendingTicket.save();
 
+        const publicUrl = process.env.PUBLIC_URL || `http://localhost:${PORT}`;
+        
         // Call Paystack
         const response = await axios.post(
             'https://api.paystack.co/transaction/initialize',
@@ -182,7 +184,7 @@ app.post('/api/payment/initialize', async (req, res) => {
                 amount: amountInKobo,
                 reference: reference,
                 currency: 'NGN',
-                callback_url: `http://localhost:${PORT}/callback`,
+                callback_url: `${publicUrl}/callback`,
                 metadata: {
                     event_id: event._id,
                     customer_name: name
