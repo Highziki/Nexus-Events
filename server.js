@@ -49,18 +49,13 @@ const authenticateAdmin = (req, res, next) => {
 // MAILER CONFIGURATION
 // ----------------------------------------------------
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false, 
+    service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER,
         pass: process.env.EMAIL_PASS
     },
-    tls: {
-        servername: 'smtp.gmail.com'
-    },
-    debug: true,  // Show SMTP logs in console
-    logger: true  // Detailed logging
+    debug: true,
+    logger: true
 });
 
 function formatEmailDate(dateStr) {
@@ -143,6 +138,8 @@ const sendConfirmationEmail = async (ticket, event) => {
 
 // Diagnostic Email Test Route (Admin Only)
 app.get('/api/admin/test-email', authenticateAdmin, async (req, res) => {
+    console.log("--- START: Diagnostic Email Test ---");
+    console.log("Using EMAIL_USER:", process.env.EMAIL_USER);
     try {
         if (!process.env.EMAIL_USER) return res.status(400).json({ error: 'EMAIL_USER not set' });
         
@@ -150,13 +147,16 @@ app.get('/api/admin/test-email', authenticateAdmin, async (req, res) => {
             from: process.env.EMAIL_USER,
             to: process.env.EMAIL_USER, // Send to self
             subject: 'Nexus Diagnostic: SMTP Test',
-            text: 'If you are reading this, your SMTP configuration is working correctly from the server environment!'
+            text: 'If you are reading this, your SMTP configuration is working correctly!'
         };
         
+        console.log("Attempting to send mail...");
         await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: 'Test email successfully dispatched to ' + process.env.EMAIL_USER });
+        console.log("--- SUCCESS: Diagnostic Email Test ---");
+        res.json({ success: true, message: 'Test email successfully dispatched' });
     } catch (err) {
-        console.error("Diagnostic Test Failed:", err);
+        console.error("--- FAILED: Diagnostic Email Test ---");
+        console.error("Error Details:", err);
         res.status(500).json({ success: false, error: err.message, code: err.code });
     }
 });
