@@ -136,12 +136,21 @@ const sendConfirmationEmail = async (ticket, event) => {
 // API ROUTES
 // ----------------------------------------------------
 
-// Diagnostic Email Test Route (Admin Only)
-app.get('/api/admin/test-email', authenticateAdmin, async (req, res) => {
+// Diagnostic Email Test Route (Temporarily Unauthenticated for Debugging)
+app.get('/api/admin/test-email', async (req, res) => {
     console.log("--- START: Diagnostic Email Test ---");
-    console.log("Using EMAIL_USER:", process.env.EMAIL_USER);
+    console.log("Environment Check:");
+    console.log("- EMAIL_USER present:", !!process.env.EMAIL_USER);
+    console.log("- EMAIL_PASS present:", !!process.env.EMAIL_PASS);
+    
     try {
-        if (!process.env.EMAIL_USER) return res.status(400).json({ error: 'EMAIL_USER not set' });
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            return res.status(400).json({ 
+                error: 'Email environment variables missing',
+                user: !!process.env.EMAIL_USER,
+                pass: !!process.env.EMAIL_PASS
+            });
+        }
         
         const mailOptions = {
             from: process.env.EMAIL_USER,
