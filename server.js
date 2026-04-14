@@ -49,19 +49,15 @@ const authenticateAdmin = (req, res, next) => {
 // MAILER CONFIGURATION
 // ----------------------------------------------------
 const transporter = nodemailer.createTransport({
-    host: 'smtp.googlemail.com',
-    port: 465,
-    secure: true,
-    family: 4,     // Force IPv4
+    host: 'smtp.sendgrid.net',
+    port: 587,
+    secure: false, // TLS
     auth: {
-        user: process.env.EMAIL_USER,
+        user: 'apikey', 
         pass: process.env.EMAIL_PASS
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-    debug: true,
-    logger: true
+    debug: false, // Clean logs for production
+    logger: false
 });
 
 function formatEmailDate(dateStr) {
@@ -129,12 +125,9 @@ const sendConfirmationEmail = async (ticket, event) => {
             ]
         };
         await transporter.sendMail(mailOptions);
-        console.log(`Confirmation email instantly dispatched to ${ticket.customerEmail} with attached QR Code`);
+        console.log(`Confirmation email sent via SendGrid to ${ticket.customerEmail}`);
     } catch (err) {
-        console.error("Critical Email Error Logic Detected:");
-        if (err.code === 'EAUTH') console.error(" - Authentication Failed! Check your EMAIL_USER/EMAIL_PASS (Use App Passwords).");
-        if (err.code === 'ECONNREFUSED') console.error(" - Connection refused by SMTP server. Check port settings.");
-        console.error(" - Full Details:", err.message);
+        console.error("Email Delivery Failed (SendGrid):", err.message);
     }
 };
 

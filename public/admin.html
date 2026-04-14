@@ -137,6 +137,7 @@
             <div class="glass rounded-2xl overflow-hidden border border-white/5 mb-10">
                 <div class="p-6 border-b border-white/5 flex justify-between items-center">
                     <h2 class="text-xl font-display font-bold text-white">Event Performance</h2>
+                    <button onclick="testEmailServer()" class="px-4 py-2 rounded-lg bg-nexus-primary/10 border border-nexus-primary/30 text-nexus-primary text-xs uppercase tracking-widest font-bold hover:bg-nexus-primary/20 transition-all">Test Mailer</button>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
@@ -660,6 +661,30 @@
                 nexusNotify('Network Error occurred while deleting.', "error");
                 btn.innerText = originalText;
                 btn.disabled = false;
+            }
+        }
+        async function testEmailServer() {
+            const token = localStorage.getItem('nexus_admin_token');
+            if (!token) {
+                nexusNotify('Session expired. Please login again.', 'error');
+                return;
+            }
+            
+            nexusNotify('Triggering SMTP Diagnostic Test...', 'loading');
+            try {
+                const res = await fetch('/api/admin/test-email', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (data.success) {
+                    nexusNotify('Success! Check your Render logs for the SMTP transcript.', 'success');
+                } else {
+                    console.error('Diagnostic error:', data);
+                    nexusNotify('SMTP Error: ' + (data.error || 'Check logs'), 'error');
+                }
+            } catch (err) {
+                console.error('Network error during diagnostic:', err);
+                nexusNotify('Failed to connect to diagnostic route.', 'error');
             }
         }
     </script>
